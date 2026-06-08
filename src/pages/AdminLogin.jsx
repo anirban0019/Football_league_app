@@ -1,23 +1,25 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { auth } from "../firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
 
 export default function AdminLogin() {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
 
-  const handleLogin = () => {
-    // 🔐 SIMPLE CREDENTIALS (change later)
-    const correctUser = "admin";
-    const correctPass = "1234";
+  const handleLogin = async () => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
 
-    if (username === correctUser && password === correctPass) {
+      // optional local flag (for quick checks)
       localStorage.setItem("adminAuth", "true");
+
       navigate("/admin");
-    } else {
-      setError("Invalid username or password");
+    } catch (err) {
+      setError("Invalid email or password");
     }
   };
 
@@ -28,18 +30,20 @@ export default function AdminLogin() {
 
         <input
           style={styles.input}
-          placeholder="Username"
-          onChange={(e) => setUsername(e.target.value)}
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
         />
 
         <input
           style={styles.input}
-          placeholder="Password"
           type="password"
+          placeholder="Password"
+          value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        {error && <p style={{ color: "red" }}>{error}</p>}
+        {error && <p style={styles.error}>{error}</p>}
 
         <button style={styles.button} onClick={handleLogin}>
           Login
@@ -51,37 +55,46 @@ export default function AdminLogin() {
 
 const styles = {
   page: {
-    background: "#0d0d0d",
+    background: "#0b0f19",
     height: "100vh",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    color: "white",
-    fontFamily: "Arial"
+    color: "white"
   },
+
   card: {
-    background: "#1a1a1a",
-    padding: "20px",
-    borderRadius: "12px",
-    width: "300px",
-    textAlign: "center"
+    background: "#111827",
+    padding: "25px",
+    borderRadius: "14px",
+    width: "320px",
+    textAlign: "center",
+    border: "1px solid rgba(255,255,255,0.08)"
   },
+
   input: {
     width: "100%",
     padding: "10px",
-    margin: "8px 0",
+    margin: "10px 0",
     borderRadius: "8px",
     border: "1px solid #333",
-    background: "#111",
+    background: "#0d0d0d",
     color: "white"
   },
+
   button: {
     width: "100%",
     padding: "10px",
-    background: "#007bff",
-    color: "white",
+    background: "#3b82f6",
     border: "none",
     borderRadius: "8px",
-    cursor: "pointer"
+    color: "white",
+    cursor: "pointer",
+    fontWeight: "bold"
+  },
+
+  error: {
+    color: "#ef4444",
+    fontSize: "14px"
   }
 };
