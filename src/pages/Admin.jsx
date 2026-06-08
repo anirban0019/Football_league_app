@@ -6,7 +6,9 @@ import {
   onSnapshot,
   doc,
   updateDoc,
-  addDoc
+  addDoc,
+  deleteDoc,
+  getDocs
 } from "firebase/firestore";
 
 export default function Admin() {
@@ -189,6 +191,24 @@ export default function Admin() {
 
     alert("🔥 League Generated!");
   };
+  // ---------------- Clear Curreny LEAGUE ----------------
+  const clearLeague = async () => {
+  const confirm = window.confirm(
+    "⚠️ This will delete ALL matches. Are you sure?"
+  );
+
+  if (!confirm) return;
+
+  const snap = await getDocs(collection(db, "matches"));
+
+  const promises = snap.docs.map((docItem) =>
+    deleteDoc(doc(db, "matches", docItem.id))
+  );
+
+  await Promise.all(promises);
+
+  alert("✅ League cleared!");
+  };
 
   const logout = () => {
     localStorage.removeItem("adminAuth");
@@ -273,6 +293,13 @@ export default function Admin() {
               🔥 Generate League
             </button>
             <button
+              style={styles.dangerBtn}
+              onClick={clearLeague}
+            >
+              🗑️ Clear Current League
+            </button>
+
+            <button
               style={{ ...styles.button, background: "#28a745" }}
               onClick={() => navigate("/players")}
             >
@@ -324,5 +351,14 @@ const styles = {
   button: { padding: 10, background: "#007bff", border: "none", color: "white", borderRadius: 8 },
   matchBtn: { width: "100%", padding: 10, background: "#111", marginBottom: 8, color: "white" },
   logoutBtn: { background: "red", padding: 8 },
-  homeBtn: { background: "#007bff", padding: 8 }
+  homeBtn: { background: "#007bff", padding: 8 },
+  dangerBtn: {
+    padding: 10,
+    background: "#dc2626",
+    border: "none",
+    color: "white",
+    borderRadius: 8,
+    marginTop: "10px",
+    cursor: "pointer"
+          } 
 };

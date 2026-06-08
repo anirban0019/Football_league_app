@@ -5,8 +5,11 @@ import { useNavigate } from "react-router-dom";
 
 export default function PlayerStats() {
   const [stats, setStats] = useState([]);
+  const [hovered, setHovered] = useState(null);
+
   const navigate = useNavigate();
 
+  // INIT PLAYER
   const initPlayer = (name) => ({
     name,
     p: 0,
@@ -26,13 +29,13 @@ export default function PlayerStats() {
       const table = {};
 
       matches.forEach((m) => {
+        if (m.status !== "Finished") return;
+
         const home = m.homeTeam;
         const away = m.awayTeam;
 
         if (!table[home]) table[home] = initPlayer(home);
         if (!table[away]) table[away] = initPlayer(away);
-
-        if (m.status !== "Finished") return;
 
         const homeScore = Number(m.scoreHome) || 0;
         const awayScore = Number(m.scoreAway) || 0;
@@ -81,6 +84,7 @@ export default function PlayerStats() {
 
   return (
     <div style={styles.page}>
+      
       {/* HEADER */}
       <div style={styles.header}>
         <h1>📊 Player Stats</h1>
@@ -90,7 +94,7 @@ export default function PlayerStats() {
         </button>
       </div>
 
-      {/* TABLE WRAPPER (for mobile scroll) */}
+      {/* TABLE */}
       <div style={styles.tableWrapper}>
         <table style={styles.table}>
           <thead>
@@ -112,15 +116,34 @@ export default function PlayerStats() {
             {stats.map((s, i) => (
               <tr
                 key={s.name}
+                onMouseEnter={() => setHovered(i)}
+                onMouseLeave={() => setHovered(null)}
                 style={{
                   ...styles.row,
-                  backgroundColor: i % 2 === 0 ? "#1a1a1a" : "#141414"
+                  backgroundColor:
+                    hovered === i
+                      ? "#1e293b"
+                      : i % 2 === 0
+                      ? "#1a1a1a"
+                      : "#141414",
+                  transform:
+                    hovered === i ? "scale(1.01)" : "scale(1)",
+                  boxShadow:
+                    hovered === i
+                      ? "0 6px 18px rgba(0,0,0,0.6)"
+                      : "none"
                 }}
               >
                 <td>{i + 1}</td>
 
                 <td
-                  style={styles.playerName}
+                  style={{
+                    ...styles.playerName,
+                    color:
+                      hovered === i ? "#60a5fa" : "#38bdf8",
+                    textDecoration:
+                      hovered === i ? "underline" : "none"
+                  }}
                   onClick={() =>
                     navigate(`/player/${encodeURIComponent(s.name)}`)
                   }
@@ -135,7 +158,8 @@ export default function PlayerStats() {
                 <td>{s.gf}</td>
                 <td>{s.ga}</td>
                 <td>{s.gd}</td>
-                <td style={{ fontWeight: "bold" }}>{s.pts}</td>
+
+                <td style={styles.points}>{s.pts}</td>
               </tr>
             ))}
           </tbody>
@@ -148,7 +172,7 @@ export default function PlayerStats() {
 /* 🎨 STYLES */
 const styles = {
   page: {
-    background: "#0d0d0d",
+    background: "#0b0f19",
     minHeight: "100vh",
     color: "white",
     padding: "15px",
@@ -165,7 +189,7 @@ const styles = {
 
   homeBtn: {
     padding: "8px 12px",
-    background: "#007bff",
+    background: "#3b82f6",
     border: "none",
     color: "white",
     borderRadius: "8px",
@@ -181,19 +205,22 @@ const styles = {
     width: "100%",
     minWidth: "750px",
     borderCollapse: "collapse",
-    textAlign: "center",
-    color: "white"
+    textAlign: "center"
   },
 
   row: {
-    transition: "0.2s"
+    transition: "all 0.25s ease",
+    cursor: "pointer"
   },
 
   playerName: {
     fontWeight: "bold",
-    color: "#00bfff",
     cursor: "pointer",
-    textDecoration: "underline",
     transition: "0.2s"
+  },
+
+  points: {
+    fontWeight: "bold",
+    color: "#facc15"
   }
 };
