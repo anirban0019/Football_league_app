@@ -14,7 +14,6 @@ export default function AdminLogin() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
 
-      // optional local flag (for quick checks)
       localStorage.setItem("adminAuth", "true");
 
       navigate("/admin");
@@ -25,6 +24,15 @@ export default function AdminLogin() {
 
   return (
     <div style={styles.page}>
+
+      {/* 🔙 TOP NAV */}
+      <div style={styles.topBar}>
+        <button style={styles.backBtn} onClick={() => navigate("/")}>
+          ⬅ Home
+        </button>
+      </div>
+
+      {/* LOGIN CARD */}
       <div style={styles.card}>
         <h2>🔐 Admin Login</h2>
 
@@ -58,9 +66,26 @@ const styles = {
     background: "#0b0f19",
     height: "100vh",
     display: "flex",
-    justifyContent: "center",
+    flexDirection: "column",
     alignItems: "center",
     color: "white"
+  },
+
+  topBar: {
+    width: "100%",
+    padding: "15px",
+    display: "flex",
+    justifyContent: "flex-start"
+  },
+
+  backBtn: {
+    padding: "8px 14px",
+    background: "#1f2937",
+    border: "1px solid rgba(255,255,255,0.1)",
+    color: "white",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "0.2s"
   },
 
   card: {
@@ -69,7 +94,8 @@ const styles = {
     borderRadius: "14px",
     width: "320px",
     textAlign: "center",
-    border: "1px solid rgba(255,255,255,0.08)"
+    border: "1px solid rgba(255,255,255,0.08)",
+    marginTop: "40px"
   },
 
   input: {
