@@ -1,61 +1,25 @@
-import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { db } from "../firebase";
-import { collection, onSnapshot } from "firebase/firestore";
+import useCollection from "../hooks/useCollection";
+import DataStatus from "../components/DataStatus";
+import { calculateStandings, isFinishedMatch, sortMatches } from "../lib/league";
 
 export default function PlayerProfile() {
   const { name } = useParams();
   const navigate = useNavigate();
-
-  const [matches, setMatches] = useState([]);
-
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, "matches"), (snapshot) => {
-      const all = snapshot.docs.map((d) => d.data());
-
-      const filtered = all.filter(
-        (m) => m.homeTeam === name || m.awayTeam === name
-      );
-
-      setMatches(filtered);
-    });
-
-    return () => unsub();
-  }, [name]);
-
-  // -----------------------------
-  // 📊 STATS
-  // -----------------------------
-  let stats = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
-
-  const form = [];
-  const gpm = []; // goals per match
-
-  matches.forEach((m) => {
-    if (m.status !== "Finished") return;
-
-    const isHome = m.homeTeam === name;
-
-    const gf = isHome ? m.scoreHome : m.scoreAway;
-    const ga = isHome ? m.scoreAway : m.scoreHome;
-
-    stats.p++;
-    stats.gf += gf;
-    stats.ga += ga;
-
+  const matchState = useCollection("matches");
+  const playerState = useCollection("players");
+  const matches = sortMatches(matchState.data).filter((match) => match.homeTeam === name || match.awayTeam === name);
+  const stats = calculateStandings(matches, [{ name }])[0];
+  const form = [], gpm = [];
+  matches.filter(isFinishedMatch).forEach((match) => {
+    const isHome = match.homeTeam === name;
+    const gf = Number(isHome ? match.scoreHome : match.scoreAway);
+    const ga = Number(isHome ? match.scoreAway : match.scoreHome);
     gpm.push(gf);
-
-    if (gf > ga) {
-      stats.w++;
-      form.push("W");
-    } else if (gf < ga) {
-      stats.l++;
-      form.push("L");
-    } else {
-      stats.d++;
-      form.push("D");
-    }
+    form.push(gf > ga ? "W" : gf < ga ? "L" : "D");
   });
+  const missing = !playerState.loading && !matchState.loading && !playerState.error && !matchState.error &&
+    !playerState.data.some((player) => player.name === name) && matches.length === 0;
 
   const gd = stats.gf - stats.ga;
 
@@ -90,6 +54,7 @@ export default function PlayerProfile() {
         </button>
       </div>
 
+      <DataStatus loading={matchState.loading || playerState.loading} error={matchState.error || playerState.error} empty={missing} emptyMessage="Player not found. They may have been renamed or removed." />
       {/* STATS CARDS */}
       <div style={styles.grid}>
         <div style={styles.card}>Matches<br /><b>{stats.p}</b></div>
@@ -110,7 +75,7 @@ export default function PlayerProfile() {
             ? `🏆 Winning Streak: ${streak}`
             : streakType === "L"
             ? `💥 Losing Streak: ${streak}`
-            : "No active streak"}
+            : streakType === "D" ? `Drawing Streak: ${streak}` : "No active streak"}
         </p>
       </div>
 
@@ -141,7 +106,7 @@ export default function PlayerProfile() {
               <div
                 style={{
                   ...styles.bar,
-                  height: `${g * 25}px`
+                  height: `${g / Math.max(...gpm, 1) * 120}px`
                 }}
               />
               <small>{g}</small>
@@ -231,13 +196,14 @@ const styles = {
     display: "flex",
     gap: "10px",
     alignItems: "flex-end",
-    height: "160px",
+    minHeight: "160px",
     marginTop: "10px",
     overflowX: "auto"
   },
 
   barWrap: {
-    textAlign: "center"
+    textAlign: "center",
+    flexShrink: 0
   },
 
   bar: {

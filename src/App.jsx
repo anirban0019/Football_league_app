@@ -1,4 +1,5 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Link } from "react-router-dom";
+import RequireAuth from "./components/RequireAuth";
 import Home from "./pages/Home";
 import Admin from "./pages/Admin";
 import Table from "./pages/Table";
@@ -12,11 +13,14 @@ function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/admin-login" element={<AdminLogin/>} />
-      <Route path="/admin" element={<Admin />} />
+      <Route element={<RequireAuth />}>
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/players" element={<Players />} />
+      </Route>
       <Route path="/table" element={<Table />} />
-      <Route path="/players" element={<Players />} />
       <Route path="/stats" element={<PlayerStats />} />
       <Route path="/player/:name" element={<PlayerProfile />} />
+      <Route path="*" element={<main><h1>Page not found</h1><Link to="/">Return home</Link></main>} />
     </Routes>
   );
 }

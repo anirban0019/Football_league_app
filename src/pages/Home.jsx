@@ -1,19 +1,12 @@
-import { useEffect, useState } from "react";
-import { db } from "../firebase";
-import { collection, onSnapshot } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import useCollection from "../hooks/useCollection";
+import DataStatus from "../components/DataStatus";
+import { sortMatches } from "../lib/league";
 
 export default function Home() {
-  const [matches, setMatches] = useState([]);
+  const { data, loading, error } = useCollection("matches");
+  const matches = sortMatches(data);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, "matches"), (snap) => {
-      setMatches(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
-
-    return () => unsub();
-  }, []);
 
   // GROUP BY MATCHDAY
   const grouped = matches.reduce((acc, m) => {
@@ -21,7 +14,7 @@ export default function Home() {
     if (!acc[day]) acc[day] = [];
     acc[day].push(m);
     return acc;
-  }, {});
+  }, Object.create(null));
 
   const sortedDays = Object.keys(grouped).sort((a, b) => a - b);
 
@@ -51,6 +44,7 @@ export default function Home() {
 
       {/* MATCHDAYS */}
       <div style={styles.wrapper}>
+        <DataStatus loading={loading} error={error} empty={matches.length === 0} emptyMessage="No matches scheduled yet." />
         {sortedDays.map((day, index) => (
           <div key={day} style={{ ...styles.matchdayCard, animationDelay: `${index * 0.1}s` }}>
             
@@ -168,7 +162,9 @@ const styles = {
   team: {
     textAlign: "center",
     fontWeight: "bold",
-    fontSize: "15px"
+    fontSize: "15px",
+    minWidth: 0,
+    overflowWrap: "anywhere"
   },
 
   score: {

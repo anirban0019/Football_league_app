@@ -1,180 +1,56 @@
-import { useEffect, useState } from "react";
-import { db } from "../firebase";
-import {
-  collection,
-  onSnapshot,
-  doc,
-  updateDoc,
-  deleteDoc,
-  getDocs
-} from "firebase/firestore";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import useCollection from "../hooks/useCollection";
+import DataStatus from "../components/DataStatus";
+import { errorMessage } from "../lib/errors";
+import { renamePlayer, removePlayer } from "../lib/leagueService";
 
 export default function Players() {
-  const [players, setPlayers] = useState([]);
+  const { data: players, loading, error: loadError } = useCollection("players");
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
-
+  const [busy, setBusy] = useState(false);
+  const lock = useRef(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, "players"), (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setPlayers(data);
-    });
-
-    return () => unsub();
-  }, []);
-
-  // ✏️ EDIT PLAYER
-  const startEdit = (player) => {
-    setEditId(player.id);
-    setEditName(player.name);
+  const cancelEdit = () => { setEditId(null); setEditName(""); };
+  const run = async (action, success) => {
+    if (lock.current) return;
+    lock.current = true; setBusy(true); setError(""); setMessage("");
+    try { await action(); cancelEdit(); setMessage(success); }
+    catch (error) { setError(errorMessage(error)); }
+    finally { lock.current = false; setBusy(false); }
   };
-
-  const cancelEdit = () => {
-    setEditId(null);
-    setEditName("");
-  };
-
-  const saveEdit = async (player) => {
-    if (!editName) return;
-
-    const oldName = player.name;
-    const newName = editName;
-
-    // 1️⃣ update player name
-    await updateDoc(doc(db, "players", player.id), {
-      name: newName
-    });
-
-    // 2️⃣ update all matches
-    const matchesSnap = await getDocs(collection(db, "matches"));
-
-    matchesSnap.forEach(async (matchDoc) => {
-      const m = matchDoc.data();
-
-      if (m.homeTeam === oldName || m.awayTeam === oldName) {
-        await updateDoc(doc(db, "matches", matchDoc.id), {
-          homeTeam: m.homeTeam === oldName ? newName : m.homeTeam,
-          awayTeam: m.awayTeam === oldName ? newName : m.awayTeam
-        });
-      }
-    });
-
-    setEditId(null);
-    setEditName("");
-    alert("Player updated everywhere!");
-  };
-
-  // ❌ DELETE PLAYER
-  const deletePlayer = async (player) => {
-    const confirmDelete = window.confirm(
-      `Are you sure you want to delete ${player.name}? This will remove all related matches.`
-    );
-
-    if (!confirmDelete) return;
-
-    await deleteDoc(doc(db, "players", player.id));
-
-    const matchesSnap = await getDocs(collection(db, "matches"));
-
-    matchesSnap.forEach(async (matchDoc) => {
-      const m = matchDoc.data();
-
-      if (
-        m.homeTeam === player.name ||
-        m.awayTeam === player.name
-      ) {
-        await deleteDoc(doc(db, "matches", matchDoc.id));
-      }
-    });
-
-    alert("Player and matches deleted!");
-  };
-
-  return (
-    <div style={styles.page}>
-      <div style={styles.header}>
-        <h1>👥 Players</h1>
-
-        <button style={styles.backBtn} onClick={() => navigate("/admin")}>
-          🔙 Back
-        </button>
-      </div>
-
-      <div style={styles.card}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th>Player</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {players.map((p) => (
-              <tr key={p.id}>
-                <td>
-                  {editId === p.id ? (
-                    <input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      style={styles.input}
-                    />
-                  ) : (
-                    p.name
-                  )}
-                </td>
-
-                <td>
-                  {editId === p.id ? (
-                    <>
-                      <button
-                        style={styles.saveBtn}
-                        onClick={() => saveEdit(p)}
-                      >
-                        💾 Save
-                      </button>
-
-                      <button
-                        style={styles.cancelBtn}
-                        onClick={cancelEdit}
-                      >
-                        ❌ Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        style={styles.editBtn}
-                        onClick={() => startEdit(p)}
-                      >
-                        ✏️ Edit
-                      </button>
-
-                      <button
-                        style={styles.deleteBtn}
-                        onClick={() => deletePlayer(p)}
-                      >
-                        ❌ Remove
-                      </button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+  return <div style={styles.page}>
+    <div style={{ ...styles.header, flexWrap: "wrap", gap: 10 }}>
+      <h1>Manage Players</h1>
+      <button style={styles.backBtn} onClick={() => navigate("/admin")}>Back to Admin / Add Player</button>
     </div>
-  );
+    {error && <p role="alert">{error}</p>}
+    {message && <p role="status">{message}</p>}
+    {busy && <p role="status">Saving changes...</p>}
+    <DataStatus loading={loading} error={loadError} empty={players.length === 0} emptyMessage="No players yet. Use the Players tab in Admin to add your first player." />
+    <div style={{ ...styles.card, overflowX: "auto" }}>
+      <table style={styles.table}>
+        <thead><tr><th>Player</th><th>Actions</th></tr></thead>
+        <tbody>{players.map((player) => <tr key={player.id}>
+          <td>{editId === player.id ? <input aria-label="Player name" maxLength={80} disabled={busy} value={editName} onChange={(event) => setEditName(event.target.value)} style={styles.input} /> : player.name}</td>
+          <td>{editId === player.id ? <>
+            <button disabled={busy || !!loadError} style={styles.saveBtn} onClick={() => run(() => renamePlayer(player.id, editName), "Player and related matches updated.")}>Save</button>
+            <button disabled={busy} style={styles.cancelBtn} onClick={cancelEdit}>Cancel</button>
+          </> : <>
+            <button disabled={busy || !!loadError} style={styles.editBtn} onClick={() => { setEditId(player.id); setEditName(player.name); setError(""); setMessage(""); }}>Edit</button>
+            <button disabled={busy || !!loadError} style={styles.deleteBtn} onClick={() => {
+              if (window.confirm(`Delete ${player.name} and all their matches? This cannot be undone.`)) run(() => removePlayer(player.id), "Player and related matches removed.");
+            }}>Remove</button>
+          </>}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>;
 }
 
-/* 🎨 STYLES */
 const styles = {
   page: {
     background: "#0d0d0d",

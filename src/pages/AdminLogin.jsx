@@ -1,64 +1,39 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { auth } from "../firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import useAuth from "../hooks/useAuth";
+import { errorMessage } from "../lib/errors";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-
+  const [busy, setBusy] = useState(false);
+  const { user, loading, error: authError } = useAuth();
   const navigate = useNavigate();
-
-  const handleLogin = async () => {
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-
-      localStorage.setItem("adminAuth", "true");
-
-      navigate("/admin");
-    } catch (err) {
-      setError("Invalid email or password");
-    }
+  if (loading) return <p role="status">Checking your session...</p>;
+  if (user) return <Navigate to="/admin" replace />;
+  const handleLogin = async (event) => {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true); setError("");
+    try { await signInWithEmailAndPassword(auth, email.trim(), password); }
+    catch (error) { setError(errorMessage(error)); }
+    finally { setBusy(false); }
   };
-
-  return (
-    <div style={styles.page}>
-
-      {/* 🔙 TOP NAV */}
-      <div style={styles.topBar}>
-        <button style={styles.backBtn} onClick={() => navigate("/")}>
-          ⬅ Home
-        </button>
-      </div>
-
-      {/* LOGIN CARD */}
-      <div style={styles.card}>
-        <h2>🔐 Admin Login</h2>
-
-        <input
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-
-        <input
-          style={styles.input}
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-
-        {error && <p style={styles.error}>{error}</p>}
-
-        <button style={styles.button} onClick={handleLogin}>
-          Login
-        </button>
-      </div>
-    </div>
-  );
+  return <div style={styles.page}>
+    <div style={styles.topBar}><button style={styles.backBtn} onClick={() => navigate("/")}>Home</button></div>
+    <form style={{ ...styles.card, maxWidth: "calc(100% - 30px)" }} onSubmit={handleLogin}>
+      <h2>Admin Login</h2>
+      <label htmlFor="email">Email</label>
+      <input id="email" type="email" autoComplete="username" required disabled={busy} style={styles.input} value={email} onChange={(event) => setEmail(event.target.value)} />
+      <label htmlFor="password">Password</label>
+      <input id="password" type="password" autoComplete="current-password" required disabled={busy} style={styles.input} value={password} onChange={(event) => setPassword(event.target.value)} />
+      {(error || authError) && <p role="alert" style={styles.error}>{error || authError}</p>}
+      <button disabled={busy} style={styles.button}>{busy ? "Logging in..." : "Login"}</button>
+    </form>
+  </div>;
 }
 
 const styles = {

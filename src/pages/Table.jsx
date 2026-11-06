@@ -1,87 +1,13 @@
-import { useEffect, useState } from "react";
-import { db } from "../firebase";
-import { collection, onSnapshot } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import useCollection from "../hooks/useCollection";
+import DataStatus from "../components/DataStatus";
+import { calculateStandings } from "../lib/league";
 
 export default function Table() {
-  const [table, setTable] = useState([]);
+  const matchState = useCollection("matches");
+  const playerState = useCollection("players");
+  const table = calculateStandings(matchState.data, playerState.data);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, "matches"), (snapshot) => {
-      const matches = snapshot.docs.map((doc) => doc.data());
-
-      const standings = {};
-
-      matches.forEach((m) => {
-        if (!standings[m.homeTeam]) {
-          standings[m.homeTeam] = {
-            team: m.homeTeam,
-            p: 0, w: 0, d: 0, l: 0,
-            gf: 0, ga: 0, gd: 0, pts: 0
-          };
-        }
-
-        if (!standings[m.awayTeam]) {
-          standings[m.awayTeam] = {
-            team: m.awayTeam,
-            p: 0, w: 0, d: 0, l: 0,
-            gf: 0, ga: 0, gd: 0, pts: 0
-          };
-        }
-      });
-
-      matches.forEach((m) => {
-        if (m.status !== "Finished") return;
-
-        const home = standings[m.homeTeam];
-        const away = standings[m.awayTeam];
-
-        const sh = Number(m.scoreHome);
-        const sa = Number(m.scoreAway);
-
-        home.p++;
-        away.p++;
-
-        home.gf += sh;
-        home.ga += sa;
-
-        away.gf += sa;
-        away.ga += sh;
-
-        if (sh > sa) {
-          home.w++;
-          home.pts += 3;
-          away.l++;
-        } else if (sh < sa) {
-          away.w++;
-          away.pts += 3;
-          home.l++;
-        } else {
-          home.d++;
-          away.d++;
-          home.pts += 1;
-          away.pts += 1;
-        }
-      });
-
-      Object.values(standings).forEach((t) => {
-        t.gd = t.gf - t.ga;
-      });
-
-      const sorted = Object.values(standings).sort(
-        (a, b) =>
-          b.pts - a.pts ||
-          b.gd - a.gd ||
-          b.gf - a.gf
-      );
-
-      setTable(sorted);
-    });
-
-    return () => unsub();
-  }, []);
-
   return (
     <div style={styles.page}>
 
@@ -94,6 +20,7 @@ export default function Table() {
         </button>
       </div>
 
+      <DataStatus loading={matchState.loading || playerState.loading} error={matchState.error || playerState.error} empty={table.length === 0} emptyMessage="No players yet." />
       {/* TABLE */}
       <div style={styles.card}>
         <div style={styles.tableWrapper}>
@@ -133,7 +60,7 @@ export default function Table() {
                   }}
                 >
                   <td>{i + 1}</td>
-                  <td><b>{t.team}</b></td>
+                  <td><Link to={`/player/${encodeURIComponent(t.team)}`}>{t.team}</Link></td>
                   <td>{t.p}</td>
                   <td>{t.w}</td>
                   <td>{t.d}</td>
